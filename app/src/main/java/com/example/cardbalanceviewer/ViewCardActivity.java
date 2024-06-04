@@ -12,8 +12,6 @@ import android.content.SharedPreferences;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import org.w3c.dom.Text;
-
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -27,8 +25,10 @@ public class ViewCardActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_card_view);
-        this.setTitle("Edit Card");
 
+        this.setTitle("Edit Card"); //Title is used to show the user what they are doing/need to do
+
+        //Load necessary components:
         TextView dateEdited = findViewById(R.id.dateEdited);
         TextView unsavedChanges = findViewById(R.id.labelUnsavedChanges);
         EditText editName = findViewById(R.id.editCardName);
@@ -37,8 +37,8 @@ public class ViewCardActivity extends AppCompatActivity {
         Button addButton = findViewById(R.id.addButton);
         Button subButton = findViewById(R.id.subButton);
 
-        Intent intent = getIntent();
-        cardId = intent.getIntExtra("cardId", -1);
+        Intent editCardIntent = getIntent();
+        cardId = editCardIntent.getIntExtra("cardId", -1);
         if(cardId != -1) {
             //Card has been made before
             editName.setText(MainActivity.card.get(cardId));
@@ -47,7 +47,7 @@ public class ViewCardActivity extends AppCompatActivity {
         }
 
         //Warn user of unsaved changes made if user changes value manually:
-        TextWatcher myWatcher = new TextWatcher() {
+        TextWatcher unsavedChangesWatcher = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override
@@ -57,8 +57,9 @@ public class ViewCardActivity extends AppCompatActivity {
             @Override
             public void afterTextChanged(Editable s) {}
         };
-        editCardValue.addTextChangedListener(myWatcher);
-        editName.addTextChangedListener(myWatcher);
+        //Anytime the Value or Name is updated, use the watcher:
+        editCardValue.addTextChangedListener(unsavedChangesWatcher);
+        editName.addTextChangedListener(unsavedChangesWatcher);
 
         //Perform mathematics to adjust value automatically:
         addButton.setOnClickListener(v -> {
@@ -89,7 +90,7 @@ public class ViewCardActivity extends AppCompatActivity {
                 MainActivity.dateChanged.set(cardId, dateEdited.getText().toString());
             }
 
-            MainActivity.arrayAdapter.notifyDataSetChanged();
+            MainActivity.adapter.notifyDataSetChanged();
 
             SharedPreferences sharedPreferences = getApplication().getSharedPreferences("com.example.cardbalanceviewer", Context.MODE_PRIVATE);
             HashSet<String> putCard = new HashSet(MainActivity.card);

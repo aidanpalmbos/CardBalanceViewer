@@ -23,20 +23,23 @@ public class MainActivity extends AppCompatActivity{
     static ArrayList<String> card = new ArrayList<>();
     static ArrayList<String> balance = new ArrayList<>();
     static ArrayList<String> dateChanged = new ArrayList<>();
-    static ArrayAdapter arrayAdapter;
+    static ArrayAdapter adapter;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        this.setTitle("Select Card");
+
+        this.setTitle("Select Card"); //Title is used to show the user what they are doing/need to do
 
         ListView list = findViewById(R.id.cardList);
-        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences("com.example.cardbalanceviewer", Context.MODE_PRIVATE);
-        HashSet<String> _cards = (HashSet<String>) sharedPreferences.getStringSet("setCards", null);
-        HashSet<String> _balances = (HashSet<String>) sharedPreferences.getStringSet("setBalances", null);
-        HashSet<String> _dates = (HashSet<String>) sharedPreferences.getStringSet("setDates", null);
+        SharedPreferences sharedPrefs = getApplicationContext().getSharedPreferences("com.example.cardbalanceviewer", Context.MODE_PRIVATE);
+        HashSet<String> _cards = (HashSet<String>) sharedPrefs.getStringSet("setCards", null);
+        HashSet<String> _balances = (HashSet<String>) sharedPrefs.getStringSet("setBalances", null);
+        HashSet<String> _dates = (HashSet<String>) sharedPrefs.getStringSet("setDates", null);
+        adapter = new ArrayAdapter(this, android.R.layout.simple_expandable_list_item_1, card);
 
+        //Use Pre-existing cards:
         if(_cards != null) {
             card = new ArrayList(_cards);
         }
@@ -47,18 +50,7 @@ public class MainActivity extends AppCompatActivity{
             dateChanged = new ArrayList(_dates);
         }
 
-        arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_expandable_list_item_1, card);
-        list.setAdapter(arrayAdapter);
-
-        //View Card
-        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent intent = new Intent(getApplicationContext(), ViewCardActivity.class);
-                intent.putExtra("cardId", position);
-                startActivity(intent);
-            }
-        });
+        list.setAdapter(adapter);
 
         //Delete Card Popup
         list.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
@@ -73,17 +65,27 @@ public class MainActivity extends AppCompatActivity{
                                 balance.remove(cardToDelete);
                                 dateChanged.remove(cardToDelete);
 
-                                arrayAdapter.notifyDataSetChanged(); //Update Card List
+                                adapter.notifyDataSetChanged(); //Update Card List
 
                                 HashSet<String> putCard = new HashSet(MainActivity.card);
                                 HashSet<String> putBalance = new HashSet(MainActivity.balance);
                                 HashSet<String> putDate = new HashSet(MainActivity.dateChanged);
-                                sharedPreferences.edit().putStringSet("setCards", putCard).apply();
-                                sharedPreferences.edit().putStringSet("setBalances", putBalance).apply();
-                                sharedPreferences.edit().putStringSet("setDates", putDate).apply();
+                                sharedPrefs.edit().putStringSet("setCards", putCard).apply();
+                                sharedPrefs.edit().putStringSet("setBalances", putBalance).apply();
+                                sharedPrefs.edit().putStringSet("setDates", putDate).apply();
                             }
                         }).setNegativeButton("No", null).show();
                 return true;
+            }
+        });
+
+        //View Card
+        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent newCardIntent = new Intent(getApplicationContext(), ViewCardActivity.class);
+                newCardIntent.putExtra("cardId", position);
+                startActivity(newCardIntent);
             }
         });
     }
@@ -101,13 +103,13 @@ public class MainActivity extends AppCompatActivity{
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         super.onOptionsItemSelected(item);
 
-        //Menu item 1: Add card
+        //Menu Option 1: Add card
         if (item.getItemId() == R.id.addCard) {
-            Intent intent = new Intent(getApplicationContext(), ViewCardActivity.class);
-            startActivity(intent);
+            Intent addCardIntent = new Intent(getApplicationContext(), ViewCardActivity.class);
+            startActivity(addCardIntent);
             return true;
         }
-        //Menu item 2: Delete all
+        //Menu Option 2: Delete all cards
         if(item.getItemId() == R.id.deleteAllCards) {
             new AlertDialog.Builder(MainActivity.this).setIcon(android.R.drawable.ic_dialog_alert).setTitle("Reset All").setMessage("Delete all cards?")
                     .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
@@ -117,7 +119,7 @@ public class MainActivity extends AppCompatActivity{
                             balance.clear();
                             dateChanged.clear();
 
-                            arrayAdapter.notifyDataSetChanged(); //Update Card List
+                            adapter.notifyDataSetChanged(); //Update Card List
 
                             HashSet<String> putCard = new HashSet(MainActivity.card);
                             HashSet<String> putBalance = new HashSet(MainActivity.balance);
@@ -131,6 +133,7 @@ public class MainActivity extends AppCompatActivity{
             return true;
         }
 
+        //Nothing else was selected:
         return false;
     }
 }
