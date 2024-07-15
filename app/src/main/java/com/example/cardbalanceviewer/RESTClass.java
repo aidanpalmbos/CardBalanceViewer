@@ -4,8 +4,8 @@ import java.io.IOException;
 
 public class RESTClass {
     static long threadSleep = 2500;
-    static String host = "http://127.0.0.1:3309/";
-    static String apiKey = "/key/";
+    static String host = "http://192.168.50.168:3309/";
+    static String apiKey = "/palmbos0103palmbos0103/";
     public static String SetupString(String function) {
         return host + function + apiKey;
     }
