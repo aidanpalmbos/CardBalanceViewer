@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/addCard" android:title="Add Card"></item>
-    <item android:id="@+id/deleteAllCards" android:title="Delete All"></item>
+    <item android:id="@+id/addPrivateCard" android:title="Add Card"></item>
+    <item android:id="@+id/addPublicCard" android:title="Add Shared Card"></item>
+    <item android:id="@+id/deleteAllPrivateCards" android:title="Clear Your Cards"></item>
 </menu>

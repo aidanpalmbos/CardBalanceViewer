@@ -1,6 +1,9 @@
 <resources>
     <string name="app_name">Card Balance Viewer</string>
 
+    <string name="PrivateList">Your Cards:</string>
+    <string name="PublicList">Shared Cards:</string>
+
     <string name="EditName_label">Card Name:</string>
     <string name="EditName">Card</string>
     <string name="EditName_hint">Card Name</string>

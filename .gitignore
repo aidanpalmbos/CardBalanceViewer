@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+/AndroidAppAPI/.vs
+/AndroidAppAPI/AndroidAppAPI.sln
+/AndroidAppAPI/AndroidAppAPI/bin
+/AndroidAppAPI/AndroidAppAPI/obj
+/AndroidAppAPI/AndroidAppAPI/node_modules
+/AndroidAppAPI/AndroidAppAPI/AndroidAppAPI.njsproj
