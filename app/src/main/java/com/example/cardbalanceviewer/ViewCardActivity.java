@@ -11,17 +11,19 @@ import android.widget.TextView;
 import android.content.SharedPreferences;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.toolbox.StringRequest;
-import com.android.volley.toolbox.Volley;
-
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Response;
 
 public class ViewCardActivity extends AppCompatActivity {
 
@@ -155,37 +157,53 @@ public class ViewCardActivity extends AppCompatActivity {
 
         String name = editName.getText().toString();
         String value = editCardValue.getText().toString();
-        String variableURL = name + "/" + value + "/" + originalPublicCardName;
 
-        RequestQueue queue = Volley.newRequestQueue(this);
-        if(!RESTClass.checkConnection()) {
+        if(!RESTHelper.checkConnection()) {
             MainActivity.clearPublicListsOnError(this, "No Connection");
             return;
         }
-
+        Context currentContext = this;
         try {
-            StringRequest getRequest = new StringRequest(Request.Method.POST, RESTClass.SetupString("saveCard") + variableURL, response -> {
-                if(RESTClass.checkResponse(response)) {
-                    MainActivity.publicCardList.set(cardId, editName.getText().toString());
-                    MainActivity.publicBalanceList.set(cardId, editCardValue.getText().toString());
-                    MainActivity.publicDateChangedList.set(cardId, dateEdited.getText().toString());
-                    MainActivity.publicCardAdapter.notifyDataSetChanged();
+            String[] cardInfo = new String[]{"apiKey", RESTHelper.apiKey, "cardName", name, "balance", value, "originalName", originalPublicCardName};
+            OkHttpClient okHttpClient = new OkHttpClient();
+            okHttpClient.newCall(RESTHelper.createRequest("saveCard", cardInfo)).enqueue(new Callback() {
+                @Override
+                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                    String validResponse = response.body().string();
+                    ViewCardActivity.this.runOnUiThread(() -> {
+                        if(RESTHelper.checkResponse(validResponse)) {
+                            MainActivity.publicCardList.set(cardId, editName.getText().toString());
+                            MainActivity.publicBalanceList.set(cardId, editCardValue.getText().toString());
+                            MainActivity.publicDateChangedList.set(cardId, dateEdited.getText().toString());
+                            MainActivity.publicCardAdapter.notifyDataSetChanged();
+
+
+                            Toast.makeText(currentContext, "Shared Card Saved", Toast.LENGTH_SHORT).show();
+                            Intent transfer = new Intent(currentContext, MainActivity.class);
+                            startActivity(transfer);
+                        }
+                        else {
+                            MainActivity.clearPublicListsOnError(currentContext, "Error with Server");
+                            Intent transfer = new Intent(currentContext, MainActivity.class);
+                            startActivity(transfer);
+                        }
+                    });
                 }
-                else {
-                    MainActivity.clearPublicListsOnError(this, "Error with Server");
+                @Override
+                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                    ViewCardActivity.this.runOnUiThread(() -> {
+                        MainActivity.clearPublicListsOnError(currentContext, "Error with Server");
+                        Intent transfer = new Intent(currentContext, MainActivity.class);
+                        startActivity(transfer);
+                    });
                 }
-            }, error -> {
-                MainActivity.clearPublicListsOnError(this, "Error with Server");
             });
-            queue.add(getRequest);
         }
         catch (Exception error) {
-            MainActivity.clearPublicListsOnError(this, "Error with Server");
+            MainActivity.clearPublicListsOnError(this, "Error");
+            Intent transfer = new Intent(this, MainActivity.class);
+            startActivity(transfer);
         }
-
-        Toast.makeText(this, "Shared Card Saved", Toast.LENGTH_SHORT).show();
-        Intent transfer = new Intent(getApplicationContext(), MainActivity.class);
-        startActivity(transfer);
     }
 
     /**Create and format current date and time. Returns new Date String.*/

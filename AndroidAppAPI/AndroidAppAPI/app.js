@@ -4,9 +4,12 @@ var mysql = require('mysql');
 
 var app = express();
 var port = 3309;
-app.use(express.json());
+var bodyParser = require('body-parser');
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
 
-var apiKey = "palmbos0103palmbos0103";
+var apiKey = "";
 
 var con = mysql.createConnection({
     host: "127.0.0.1",
@@ -30,8 +33,8 @@ function mysqlMakeConection() {
 }
 
 //Load all cards from database:
-app.post("/loadCards/:apiKey", (req, res) => {
-    if (req.params.apiKey != apiKey) {
+app.post("/loadCards", (req, res) => {
+    if (req.body.apiKey != apiKey) {
         res.send(false);
         return;
     }
@@ -54,8 +57,8 @@ app.post("/loadCards/:apiKey", (req, res) => {
     });
 });
 //Save changed data:
-app.post("/saveCard/:apiKey/:cardName/:balance/:originalName", (req, res) => {
-    if (req.params.apiKey != apiKey) {
+app.post("/saveCard", (req, res) => {
+    if (req.body.apiKey != apiKey) {
         res.send(false);
         return;
     }
@@ -63,14 +66,15 @@ app.post("/saveCard/:apiKey/:cardName/:balance/:originalName", (req, res) => {
         mysqlMakeConection();
     }
 
-    let cardName = mysql.escape(req.params.cardName);
-    let balance = mysql.escape(req.params.balance);
+    let cardName = mysql.escape(req.body.cardName);
+    let balance = mysql.escape(req.body.balance);
     let date = new Date();
     date.setHours(date.getHours() - 4);
     let dateString = date.toISOString().slice(0, 19).replace('T', ' '); //Set time to home of server
-    let originalName = mysql.escape(req.params.originalName);
+    let originalName = mysql.escape(req.body.originalName);
 
     let queryString = `UPDATE cardbase.cards SET name = ${cardName}, balance = ${balance}, date = '${dateString}' WHERE (name = ${originalName});`;
+    //console.log(queryString);
 
     con.query(queryString, function (err, results) {
         if (err) {
@@ -83,8 +87,8 @@ app.post("/saveCard/:apiKey/:cardName/:balance/:originalName", (req, res) => {
     });
 });
 //Create a new card in database:
-app.post("/createCard/:apiKey", (req, res) => {
-    if (req.params.apiKey != apiKey) {
+app.post("/createCard", (req, res) => {
+    if (req.body.apiKey != apiKey) {
         res.send(false);
         return;
     }

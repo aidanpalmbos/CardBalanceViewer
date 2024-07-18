@@ -2,10 +2,10 @@ package com.example.cardbalanceviewer;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -18,16 +18,17 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.android.volley.Request;
 import com.android.volley.RequestQueue;
-import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
+
+import okhttp3.*;
 
 public class MainActivity extends AppCompatActivity{
 
@@ -82,7 +83,7 @@ public class MainActivity extends AppCompatActivity{
 
     @Override
     public void onResume() {
-        if(RESTClass.checkConnection()) {
+        if(RESTHelper.checkConnection()) {
             loadPublicLists();
         }
         else {
@@ -148,24 +149,37 @@ public class MainActivity extends AppCompatActivity{
     /**Load shared cards from the server.*/
     public void loadPublicLists() {
         try {
-            StringRequest getRequest = new StringRequest(Request.Method.POST, RESTClass.SetupString("loadCards"), response -> {
-                clearPublicLists();
-                publicCardAdapter.notifyDataSetChanged();
+            OkHttpClient okHttpClient = new OkHttpClient();
+            okHttpClient.newCall(RESTHelper.createRequest("loadCards", (new String[]{"apiKey", RESTHelper.apiKey}))).enqueue(new Callback() {
+                @Override
+                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                    String validResponse = response.body().string();
+                    MainActivity.this.runOnUiThread(() -> {
+                        Log.d("asdf", validResponse);
+                        clearPublicLists();
+                        publicCardAdapter.notifyDataSetChanged();
 
-                if(!RESTClass.checkResponse(response)) {
-                    Toast.makeText(this, "Error with Server", Toast.LENGTH_SHORT).show();
-                    return;
+                        if(!RESTHelper.checkResponse(validResponse)) {
+                            Toast.makeText(getApplicationContext(), "Error with Server", Toast.LENGTH_SHORT).show();
+                        }
+                        else {
+                            stringToPublicCards(validResponse);
+                        }
+                        publicCardAdapter.notifyDataSetChanged();
+                    });
                 }
 
-                stringToPublicCards(response);
-                publicCardAdapter.notifyDataSetChanged();
-            }, error -> {
-                clearPublicListsOnError(this, "Error with Server");
+                @Override
+                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                    MainActivity.this.runOnUiThread(() -> {
+                        clearPublicListsOnError(getApplicationContext(), "Error with Server");
+                        publicCardAdapter.notifyDataSetChanged();
+                    });
+                }
             });
-            queue.add(getRequest);
         }
         catch (Exception error){
-            clearPublicListsOnError(this, "Error with Server");
+            clearPublicListsOnError(this, "Error");
         }
     }
     /**Format the Server Response into their respective lists.*/
@@ -215,30 +229,24 @@ public class MainActivity extends AppCompatActivity{
     }
 
     public AdapterView.OnItemLongClickListener deleteCardOnLongClick() {
-        return new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                final int cardToDelete = position;
-                new AlertDialog.Builder(MainActivity.this).setIcon(android.R.drawable.ic_dialog_alert).setTitle("Delete Card").setMessage("Delete this card?")
-                        .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                privateCardList.remove(cardToDelete);
-                                privateBalanceList.remove(cardToDelete);
-                                privateDateChangedList.remove(cardToDelete);
+        return (parent, view, position, id) -> {
+            final int cardToDelete = position;
+            new AlertDialog.Builder(MainActivity.this).setIcon(android.R.drawable.ic_dialog_alert).setTitle("Delete Card").setMessage("Delete this card?")
+                    .setPositiveButton("Yes", (dialog, which) -> {
+                        privateCardList.remove(cardToDelete);
+                        privateBalanceList.remove(cardToDelete);
+                        privateDateChangedList.remove(cardToDelete);
 
-                                privateCardAdapter.notifyDataSetChanged(); //Update Card List
+                        privateCardAdapter.notifyDataSetChanged(); //Update Card List
 
-                                HashSet<String> putCard = new HashSet(MainActivity.privateCardList);
-                                HashSet<String> putBalance = new HashSet(MainActivity.privateBalanceList);
-                                HashSet<String> putDate = new HashSet(MainActivity.privateDateChangedList);
-                                sharedPrefs.edit().putStringSet("setCards", putCard).apply();
-                                sharedPrefs.edit().putStringSet("setBalances", putBalance).apply();
-                                sharedPrefs.edit().putStringSet("setDates", putDate).apply();
-                            }
-                        }).setNegativeButton("No", null).show();
-                return true;
-            }
+                        HashSet<String> putCard = new HashSet(MainActivity.privateCardList);
+                        HashSet<String> putBalance = new HashSet(MainActivity.privateBalanceList);
+                        HashSet<String> putDate = new HashSet(MainActivity.privateDateChangedList);
+                        sharedPrefs.edit().putStringSet("setCards", putCard).apply();
+                        sharedPrefs.edit().putStringSet("setBalances", putBalance).apply();
+                        sharedPrefs.edit().putStringSet("setDates", putDate).apply();
+                    }).setNegativeButton("No", null).show();
+            return true;
         };
     }
 
@@ -254,26 +262,18 @@ public class MainActivity extends AppCompatActivity{
         };
     }
     public AdapterView.OnItemClickListener publicCardOnClick() {
-        return new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if(!RESTClass.checkConnection()) {
-                    clearPublicListsOnError(getApplicationContext(), "No Connection");
-                    return;
-                }
-
-                loadPublicLists();
-                try {
-                    Thread.sleep(RESTClass.threadSleep);
-                } catch (InterruptedException e) {
-                    return;
-                }
-
-                Intent newCardIntent = new Intent(getApplicationContext(), ViewCardActivity.class);
-                newCardIntent.putExtra("isPublic", true);
-                newCardIntent.putExtra("cardId", position);
-                startActivity(newCardIntent);
+        return (parent, view, position, id) -> {
+            if(!RESTHelper.checkConnection()) {
+                clearPublicListsOnError(getApplicationContext(), "No Connection");
+                return;
             }
+
+            loadPublicLists();
+
+            Intent newCardIntent = new Intent(getApplicationContext(), ViewCardActivity.class);
+            newCardIntent.putExtra("isPublic", true);
+            newCardIntent.putExtra("cardId", position);
+            startActivity(newCardIntent);
         };
     }
 
@@ -283,36 +283,48 @@ public class MainActivity extends AppCompatActivity{
         return true;
     }
     public boolean menuCreatePublic() {
-        if(!RESTClass.checkConnection()) {
+        if(!RESTHelper.checkConnection()) {
             clearPublicListsOnError(this, "No Connection");
             return false;
         }
 
-        RequestQueue queue = Volley.newRequestQueue(this);
         try {
-            StringRequest getRequest = new StringRequest(Request.Method.POST, RESTClass.SetupString("createCard"), response -> {
-                if(RESTClass.checkResponse(response)) {
-                    publicCardList.add(response);
-                    publicBalanceList.add("0");
-                    publicDateChangedList.add("");
-                    publicCardAdapter.notifyDataSetChanged();
+            Context currentContext = this;
+            OkHttpClient okHttpClient = new OkHttpClient();
+            okHttpClient.newCall(RESTHelper.createRequest("createCard", (new String[]{"apiKey", RESTHelper.apiKey}))).enqueue(new Callback() {
+                @Override
+                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                    String validResponse = response.body().string();
+                    MainActivity.this.runOnUiThread(() -> {
+                        if(RESTHelper.checkResponse(validResponse)) {
+                            publicCardList.add(validResponse);
+                            publicBalanceList.add("0");
+                            publicDateChangedList.add("");
+                            publicCardAdapter.notifyDataSetChanged();
 
-                    Intent newCardIntent = new Intent(this, ViewCardActivity.class);
-                    newCardIntent.putExtra("isPublic", true);
-                    newCardIntent.putExtra("cardId", publicCardList.size() - 1);
-                    startActivity(newCardIntent);
+                            Intent newCardIntent = new Intent(currentContext, ViewCardActivity.class);
+                            newCardIntent.putExtra("isPublic", true);
+                            newCardIntent.putExtra("cardId", publicCardList.size() - 1);
+                            startActivity(newCardIntent);
+                        }
+                        else {
+                            clearPublicListsOnError(currentContext, "Error on Server");
+                        }
+                    });
                 }
-                else {
-                    clearPublicListsOnError(this, "Error on Server");
+
+                @Override
+                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                    MainActivity.this.runOnUiThread(() -> {
+                        clearPublicListsOnError(currentContext, "Error with Server");
+                        publicCardAdapter.notifyDataSetChanged();
+                    });
                 }
-            }, error -> {
-                clearPublicListsOnError(this, "Error on Server");
             });
-            queue.add(getRequest);
             return true;
         }
         catch (Exception error) {
-            clearPublicListsOnError(this, "Error on Server");
+            clearPublicListsOnError(this, "Error");
             return false;
         }
     }
@@ -320,20 +332,17 @@ public class MainActivity extends AppCompatActivity{
         new AlertDialog.Builder(MainActivity.this).setIcon(android.R.drawable.ic_dialog_alert)
                 .setTitle("Delete All")
                 .setMessage("This will delete all of your cards, but the shared ones will remain.\n\nAre you sure?")
-                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        clearPrivateLists();
-                        privateCardAdapter.notifyDataSetChanged(); //Update Card List
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    clearPrivateLists();
+                    privateCardAdapter.notifyDataSetChanged(); //Update Card List
 
-                        HashSet<String> putCard = new HashSet(MainActivity.privateCardList);
-                        HashSet<String> putBalance = new HashSet(MainActivity.privateBalanceList);
-                        HashSet<String> putDate = new HashSet(MainActivity.privateDateChangedList);
-                        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences("com.example.cardbalanceviewer", Context.MODE_PRIVATE);
-                        sharedPreferences.edit().putStringSet("setCards", putCard).apply();
-                        sharedPreferences.edit().putStringSet("setBalances", putBalance).apply();
-                        sharedPreferences.edit().putStringSet("setDates", putDate).apply();
-                    }
+                    HashSet<String> putCard = new HashSet(MainActivity.privateCardList);
+                    HashSet<String> putBalance = new HashSet(MainActivity.privateBalanceList);
+                    HashSet<String> putDate = new HashSet(MainActivity.privateDateChangedList);
+                    SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences("com.example.cardbalanceviewer", Context.MODE_PRIVATE);
+                    sharedPreferences.edit().putStringSet("setCards", putCard).apply();
+                    sharedPreferences.edit().putStringSet("setBalances", putBalance).apply();
+                    sharedPreferences.edit().putStringSet("setDates", putDate).apply();
                 }).setNegativeButton("No", null).show();
         return true;
     }

@@ -5,9 +5,9 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.FormBody;
 
-public class RESTClass {
-    static String host = "http://192.168.50.168:3309/";
-    static String apiKey = "palmbos0103palmbos0103";
+public class RESTHelper {
+    static String host = "http://127.0.0.168:3309/";
+    static String apiKey = "";
 
     /**Check if client can access Internet. Returns True if connection can be made.*/
     public static boolean checkConnection() {
